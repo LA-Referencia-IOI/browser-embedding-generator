@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Browser Embedding Demo</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: white;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 16px;
+      background: white;
+    }
+
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: none;
+      background: #2563eb;
+      color: white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    button:disabled {
+      background: #94a3b8;
+      color: #e2e8f0;
+      cursor: not-allowed;
+      opacity: 0.8;
+    }
+
+    button:disabled:hover {
+      background: #94a3b8;
+    }
+
+    .status {
+      margin-top: 16px;
+      color: #555;
+    }
+
+    .vector-container {
+      margin-top: 24px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 300px;
+      padding: 12px;
+      font-family: monospace;
+      font-size: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>Semantic Embedding Generator</h1>
+
+    <label for="modelSelect">Model</label>
+    <select id="modelSelect">
+      <option value="Xenova/multilingual-e5-small">multilingual-e5-small</option>
+      <option value="Xenova/multilingual-e5-base">multilingual-e5-base</option>
+      <option value="Xenova/multilingual-e5-large" selected>multilingual-e5-large</option>
+    </select>
+
+    <input
+      type="text"
+      id="textInput"
+      placeholder="Type something..."
+    />
+
+    <button type="button" id="generateButton">
+      Generate Embedding
+    </button>
+
+    <div class="status" id="status">
+      Loading model...
+    </div>
+
+    <div class="vector-container">
+      <textarea
+        id="vectorOutput"
+        readonly
+        placeholder="Embedding vector will appear here..."
+      ></textarea>
+    </div>
+  </div>
+
+  <script type="module">
+
+    import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers';
+
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+
+    const statusElement = document.getElementById('status');
+    const inputElement = document.getElementById('textInput');
+    const outputElement = document.getElementById('vectorOutput');
+    const buttonElement = document.getElementById('generateButton');
+    const modelSelectElement = document.getElementById('modelSelect');
+
+    const modelLabels = {
+      'Xenova/multilingual-e5-small': 'multilingual-e5-small',
+      'Xenova/multilingual-e5-base': 'multilingual-e5-base',
+      'Xenova/multilingual-e5-large': 'multilingual-e5-large'
+    };
+
+    let extractor = null;
+    let currentModel = null;
+    let isModelLoading = false;
+
+    async function loadModel(modelName) {
+
+      const loadStartTime = performance.now();
+
+      isModelLoading = true;
+      extractor = null;
+      currentModel = null;
+      statusElement.innerText = `Loading ${modelLabels[modelName]}...`;
+      buttonElement.disabled = true;
+      modelSelectElement.disabled = true;
+
+      try {
+        extractor = await pipeline(
+          'feature-extraction',
+          modelName
+        );
+
+        const loadDurationInSeconds = ((performance.now() - loadStartTime) / 1000).toFixed(2);
+
+        currentModel = modelName;
+        statusElement.innerText = `Model loaded successfully: ${modelLabels[modelName]} in ${loadDurationInSeconds}s.`;
+        buttonElement.disabled = false;
+      } finally {
+        isModelLoading = false;
+        modelSelectElement.disabled = false;
+      }
+    }
+
+    async function generateEmbedding(text) {
+
+      const output = await extractor(
+        `query: ${text}`,
+        {
+          pooling: 'mean',
+          normalize: true
+        }
+      );
+
+      return Array.from(output.data);
+    }
+
+    modelSelectElement.addEventListener('change', async () => {
+
+      try {
+        await loadModel(modelSelectElement.value);
+      } catch (error) {
+        console.error(error);
+        statusElement.innerText = 'Error loading selected model.';
+        buttonElement.disabled = true;
+        modelSelectElement.disabled = false;
+      }
+    });
+
+    buttonElement.addEventListener('click', async () => {
+
+      if (isModelLoading || !extractor || currentModel !== modelSelectElement.value) {
+        return;
+      }
+
+      const text = inputElement.value.trim();
+
+      if (!text) {
+        alert('Please type something.');
+        return;
+      }
+
+      try {
+
+        statusElement.innerText = `Generating embedding with ${modelLabels[currentModel]}...`;
+
+        const embedding = await generateEmbedding(text);
+
+        console.log('Embedding Vector:', embedding);
+
+        outputElement.value = JSON.stringify(
+          embedding,
+          null,
+          2
+        );
+
+        statusElement.innerText =
+          `Embedding generated successfully. Dimensions: ${embedding.length}`;
+
+      } catch (error) {
+
+        console.error(error);
+
+        statusElement.innerText =
+          'Error generating embedding.';
+      }
+    });
+
+    buttonElement.disabled = true;
+
+    loadModel(modelSelectElement.value).catch((error) => {
+      console.error(error);
+      statusElement.innerText = 'Error loading initial model.';
+      buttonElement.disabled = true;
+      modelSelectElement.disabled = false;
+    });
+
+  </script>
+
+</body>
+</html>
