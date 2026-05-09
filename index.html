@@ -1,255 +1,92 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Browser Embedding Demo</title>
-
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 40px;
-      display: flex;
-      justify-content: center;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 900px;
-      background: white;
-      padding: 24px;
-      border-radius: 12px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    h1 {
-      margin-top: 0;
-      font-size: 24px;
-    }
-
-    input,
-    select {
-      width: 100%;
-      padding: 14px;
-      font-size: 16px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      margin-bottom: 16px;
-      background: white;
-    }
-
-    button {
-      padding: 12px 20px;
-      font-size: 16px;
-      border: none;
-      background: #2563eb;
-      color: white;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background: #1d4ed8;
-    }
-
-    button:disabled {
-      background: #94a3b8;
-      color: #e2e8f0;
-      cursor: not-allowed;
-      opacity: 0.8;
-    }
-
-    button:disabled:hover {
-      background: #94a3b8;
-    }
-
-    .status {
-      margin-top: 16px;
-      color: #555;
-    }
-
-    .vector-container {
-      margin-top: 24px;
-    }
-
-    textarea {
-      width: 100%;
-      height: 300px;
-      padding: 12px;
-      font-family: monospace;
-      font-size: 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      resize: vertical;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Browser Embedding Demo</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 850px; }
+        h1 { margin: 0 0 20px 0; font-size: 1.5rem; color: #1a202c; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; font-weight: 600; margin-bottom: 8px; color: #4a5568; }
+        select, input, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; box-sizing: border-box; }
+        button { width: 100%; padding: 14px; background: #3182ce; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        button:disabled { background: #cbd5e0; cursor: not-allowed; }
+        #status { margin-top: 15px; padding: 10px; border-radius: 8px; font-size: 0.9rem; background: #edf2f7; color: #2d3748; }
+        textarea { margin-top: 20px; height: 180px; font-family: 'Cascadia Code', monospace; font-size: 0.85rem; }
+    </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>Semantic Embedding Generator</h1>
-
-    <label for="modelSelect">Model</label>
-    <select id="modelSelect">
-      <option value="Xenova/multilingual-e5-small">multilingual-e5-small</option>
-      <option value="Xenova/multilingual-e5-base" selected>multilingual-e5-base</option>
-      <option value="Xenova/multilingual-e5-large">multilingual-e5-large</option>
-    </select>
-
-    <input
-      type="text"
-      id="textInput"
-      placeholder="Type something..."
-    />
-
-    <button type="button" id="generateButton">
-      Generate Embedding
-    </button>
-
-    <div class="status" id="status">
-      Loading model...
+<div class="card">
+    <h1>Browser Embedding Demo</h1>
+    
+    <div class="form-group">
+        <label for="modelSelect">Select Model Complexity</label>
+        <select id="modelSelect">
+            <option value="Xenova/multilingual-e5-small">Small (422MB / 384 dim) - Fast</option>
+            <option value="Xenova/multilingual-e5-base" selected>Base (1.1GB / 768 dim) - Balanced</option>
+            <option value="Xenova/multilingual-e5-large">Large (2.2GB / 1024 dim) - High Precision</option>
+        </select>
     </div>
 
-    <div class="vector-container">
-      <textarea
-        id="vectorOutput"
-        readonly
-        placeholder="Embedding vector will appear here..."
-      ></textarea>
+    <div class="form-group">
+        <label for="textInput">Text to Vectorize</label>
+        <input type="text" id="textInput" placeholder="Enter text here...">
     </div>
-  </div>
 
-  <script type="module">
+    <button type="button" id="generateBtn" disabled>Loading Model...</button>
 
-    import { env, pipeline } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers';
+    <div id="status">Initializing...</div>
 
-    env.allowLocalModels = false;
-    env.useBrowserCache = true;
+    <textarea id="output" readonly placeholder="Embedding vector result..."></textarea>
+</div>
 
-    const statusElement = document.getElementById('status');
-    const inputElement = document.getElementById('textInput');
-    const outputElement = document.getElementById('vectorOutput');
-    const buttonElement = document.getElementById('generateButton');
-    const modelSelectElement = document.getElementById('modelSelect');
+<script type="module">
+    const modelSelect = document.getElementById('modelSelect');
+    const textInput = document.getElementById('textInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const statusDiv = document.getElementById('status');
+    const outputArea = document.getElementById('output');
 
-    const modelLabels = {
-      'Xenova/multilingual-e5-small': 'multilingual-e5-small',
-      'Xenova/multilingual-e5-base': 'multilingual-e5-base',
-      'Xenova/multilingual-e5-large': 'multilingual-e5-large'
+    // Create the worker
+    const worker = new Worker('./worker.js', { type: 'module' });
+
+    worker.onmessage = (e) => {
+        const { status, modelName, device, embedding, dimensions } = e.data;
+
+        if (status === 'ready') {
+            statusDiv.innerText = `Model Loaded: ${modelName} on ${device.toUpperCase()}`;
+            generateBtn.disabled = false;
+            generateBtn.innerText = "Generate Embedding";
+        }
+
+        if (status === 'complete') {
+            outputArea.value = JSON.stringify(embedding, null, 2);
+            statusDiv.innerText = `Successfully generated ${dimensions} dimensions.`;
+            generateBtn.disabled = false;
+        }
     };
 
-    let extractor = null;
-    let currentModel = null;
-    let isModelLoading = false;
-
-    async function loadModel(modelName) {
-
-      const loadStartTime = performance.now();
-
-      isModelLoading = true;
-      extractor = null;
-      currentModel = null;
-      statusElement.innerText = `Loading ${modelLabels[modelName]}...`;
-      buttonElement.disabled = true;
-      modelSelectElement.disabled = true;
-
-      try {
-        extractor = await pipeline(
-          'feature-extraction',
-          modelName
-        );
-
-        const loadDurationInSeconds = ((performance.now() - loadStartTime) / 1000).toFixed(2);
-
-        currentModel = modelName;
-        statusElement.innerText = `Model loaded successfully: ${modelLabels[modelName]} in ${loadDurationInSeconds}s.`;
-        buttonElement.disabled = false;
-      } finally {
-        isModelLoading = false;
-        modelSelectElement.disabled = false;
-      }
+    function initModel() {
+        generateBtn.disabled = true;
+        generateBtn.innerText = "Downloading...";
+        statusDiv.innerText = "The model is being loaded into memory...";
+        worker.postMessage({ action: 'load', modelName: modelSelect.value });
     }
 
-    async function generateEmbedding(text) {
+    generateBtn.addEventListener('click', () => {
+        const text = textInput.value.trim();
+        if (!text) return;
 
-      const output = await extractor(
-        `query: ${text}`,
-        {
-          pooling: 'mean',
-          normalize: true
-        }
-      );
-
-      return Array.from(output.data);
-    }
-
-    modelSelectElement.addEventListener('change', async () => {
-
-      try {
-        await loadModel(modelSelectElement.value);
-      } catch (error) {
-        console.error(error);
-        statusElement.innerText = 'Error loading selected model.';
-        buttonElement.disabled = true;
-        modelSelectElement.disabled = false;
-      }
+        generateBtn.disabled = true;
+        worker.postMessage({ action: 'generate', text });
     });
 
-    buttonElement.addEventListener('click', async () => {
-
-      if (isModelLoading || !extractor || currentModel !== modelSelectElement.value) {
-        return;
-      }
-
-      const text = inputElement.value.trim();
-
-      if (!text) {
-        alert('Please type something.');
-        return;
-      }
-
-      try {
-
-        statusElement.innerText = `Generating embedding with ${modelLabels[currentModel]}...`;
-
-        const embedding = await generateEmbedding(text);
-
-        console.log('Embedding Vector:', embedding);
-
-        outputElement.value = JSON.stringify(
-          embedding,
-          null,
-          2
-        );
-
-        statusElement.innerText =
-          `Embedding generated successfully. Dimensions: ${embedding.length}`;
-
-      } catch (error) {
-
-        console.error(error);
-
-        statusElement.innerText =
-          'Error generating embedding.';
-      }
-    });
-
-    buttonElement.disabled = true;
-
-    loadModel(modelSelectElement.value).catch((error) => {
-      console.error(error);
-      statusElement.innerText = 'Error loading initial model.';
-      buttonElement.disabled = true;
-      modelSelectElement.disabled = false;
-    });
-
-  </script>
+    modelSelect.addEventListener('change', initModel);
+    initModel(); // Start first load
+</script>
 
 </body>
 </html>
