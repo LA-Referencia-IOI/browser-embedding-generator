@@ -1,92 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Browser Embedding Demo</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
-        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); width: 100%; max-width: 850px; }
-        h1 { margin: 0 0 20px 0; font-size: 1.5rem; color: #1a202c; }
-        .form-group { margin-bottom: 20px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; color: #4a5568; }
-        select, input, textarea { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px; font-size: 1rem; box-sizing: border-box; }
-        button { width: 100%; padding: 14px; background: #3182ce; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        button:disabled { background: #cbd5e0; cursor: not-allowed; }
-        #status { margin-top: 15px; padding: 10px; border-radius: 8px; font-size: 0.9rem; background: #edf2f7; color: #2d3748; }
-        textarea { margin-top: 20px; height: 180px; font-family: 'Cascadia Code', monospace; font-size: 0.85rem; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+            width: 100%;
+            max-width: 850px;
+        }
+
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 1.5rem;
+            color: #1a202c;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #4a5568;
+        }
+
+        select,
+        input,
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #3182ce;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:disabled {
+            background: #cbd5e0;
+            cursor: not-allowed;
+        }
+
+        #status {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: #edf2f7;
+            color: #2d3748;
+        }
+
+        textarea {
+            margin-top: 20px;
+            height: 180px;
+            font-family: 'Cascadia Code', monospace;
+            font-size: 0.85rem;
+        }
     </style>
 </head>
+
 <body>
 
-<div class="card">
-    <h1>Browser Embedding Demo</h1>
-    
-    <div class="form-group">
-        <label for="modelSelect">Select Model Complexity</label>
-        <select id="modelSelect">
-            <option value="Xenova/multilingual-e5-small">Small (422MB / 384 dim) - Fast</option>
-            <option value="Xenova/multilingual-e5-base" selected>Base (1.1GB / 768 dim) - Balanced</option>
-            <option value="Xenova/multilingual-e5-large">Large (2.2GB / 1024 dim) - High Precision</option>
-        </select>
+    <div class="card">
+        <h1>Browser Embedding Demo</h1>
+
+        <div class="form-group">
+            <label for="modelSelect">Select Model Complexity</label>
+            <select id="modelSelect">
+                <option value="Xenova/multilingual-e5-small">Small (422MB / 384 dim) - Fast</option>
+                <option value="Xenova/multilingual-e5-base" selected>Base (1.1GB / 768 dim) - Balanced</option>
+                <option value="Xenova/multilingual-e5-large">Large (2.2GB / 1024 dim) - High Precision</option>
+                <option value="Xenova/bge-m3">BGE-M3 (1.1GB / 1024 dim) - Multilingual</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="textInput">Text to Vectorize</label>
+            <input type="text" id="textInput" placeholder="Enter text here...">
+        </div>
+
+        <button type="button" id="generateBtn" disabled>Loading Model...</button>
+
+        <div id="status">Initializing...</div>
+
+        <textarea id="output" readonly placeholder="Embedding vector result..."></textarea>
     </div>
 
-    <div class="form-group">
-        <label for="textInput">Text to Vectorize</label>
-        <input type="text" id="textInput" placeholder="Enter text here...">
-    </div>
+    <script type="module">
+        const modelSelect = document.getElementById('modelSelect');
+        const textInput = document.getElementById('textInput');
+        const generateBtn = document.getElementById('generateBtn');
+        const statusDiv = document.getElementById('status');
+        const outputArea = document.getElementById('output');
 
-    <button type="button" id="generateBtn" disabled>Loading Model...</button>
+        // Create the worker
+        const worker = new Worker('./worker.js', { type: 'module' });
 
-    <div id="status">Initializing...</div>
+        worker.onmessage = (e) => {
+            const { status, modelName, device, embedding, dimensions } = e.data;
 
-    <textarea id="output" readonly placeholder="Embedding vector result..."></textarea>
-</div>
+            if (status === 'ready') {
+                statusDiv.innerText = `Model Loaded: ${modelName} on ${device.toUpperCase()}`;
+                generateBtn.disabled = false;
+                generateBtn.innerText = "Generate Embedding";
+            }
 
-<script type="module">
-    const modelSelect = document.getElementById('modelSelect');
-    const textInput = document.getElementById('textInput');
-    const generateBtn = document.getElementById('generateBtn');
-    const statusDiv = document.getElementById('status');
-    const outputArea = document.getElementById('output');
+            if (status === 'complete') {
+                outputArea.value = JSON.stringify(embedding, null, 2);
+                statusDiv.innerText = `Successfully generated ${dimensions} dimensions.`;
+                generateBtn.disabled = false;
+            }
+        };
 
-    // Create the worker
-    const worker = new Worker('./worker.js', { type: 'module' });
-
-    worker.onmessage = (e) => {
-        const { status, modelName, device, embedding, dimensions } = e.data;
-
-        if (status === 'ready') {
-            statusDiv.innerText = `Model Loaded: ${modelName} on ${device.toUpperCase()}`;
-            generateBtn.disabled = false;
-            generateBtn.innerText = "Generate Embedding";
+        function initModel() {
+            generateBtn.disabled = true;
+            generateBtn.innerText = "Downloading...";
+            statusDiv.innerText = "The model is being loaded into memory...";
+            worker.postMessage({ action: 'load', modelName: modelSelect.value });
         }
 
-        if (status === 'complete') {
-            outputArea.value = JSON.stringify(embedding, null, 2);
-            statusDiv.innerText = `Successfully generated ${dimensions} dimensions.`;
-            generateBtn.disabled = false;
-        }
-    };
+        generateBtn.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            if (!text) return;
 
-    function initModel() {
-        generateBtn.disabled = true;
-        generateBtn.innerText = "Downloading...";
-        statusDiv.innerText = "The model is being loaded into memory...";
-        worker.postMessage({ action: 'load', modelName: modelSelect.value });
-    }
+            generateBtn.disabled = true;
+            worker.postMessage({ action: 'generate', text });
+        });
 
-    generateBtn.addEventListener('click', () => {
-        const text = textInput.value.trim();
-        if (!text) return;
-
-        generateBtn.disabled = true;
-        worker.postMessage({ action: 'generate', text });
-    });
-
-    modelSelect.addEventListener('change', initModel);
-    initModel(); // Start first load
-</script>
+        modelSelect.addEventListener('change', initModel);
+        initModel(); // Start first load
+    </script>
 
 </body>
+
 </html>
